@@ -5,95 +5,69 @@ import cors from "cors";
 const app = express();
 const HTTP_PORT = process.env.PORT || 3000;
 
-// Middleware muss ZUERST kommen!
-app.use(express.json());
+// ==================== MIDDLEWARE ====================
+app.use(express.json()); // JSON-Daten verarbeiten
+app.use(cors()); // Cross-Origin Resource Sharing aktivieren
 
-/**
- * CORS Middleware
- * Erlaubt den Zugriff von anderen Domains (z.B. localhost:5500)
- */
-app.use(cors());
-
-// Routes
+// ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
   res.json({ message: "Willkommen bei deiner RESTful API!" });
 });
 
-// =================================================================================
-
-// GET all todos
-app.get("/api/todos", (req, res) => {
-  db.all("SELECT * FROM todos ORDER BY completed ASC, updated DESC", [], (err, rows) => {
-  // db.all("SELECT * FROM todos", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+// ==================== ALLE TODOS LADEN ====================
+app.get("/api/todos", async (req, res) => {
+  try {
+    const sql = `SELECT * FROM todos ORDER BY completed ASC, updated DESC`;
+    const [rows] = await pool.query(sql);
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// GET single todo
-app.get("/api/todos/:id", (req, res) => {
-  db.get("SELECT * FROM todos WHERE id = ?", [req.params.id], (err, row) => {
-    // Hier wird die Datenbank abgefragt!
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (!row) {
+// ==================== EINZELNES TODO LADEN ====================
+app.get("/api/todos/:id", async (req, res) => {
+  try {
+    const sql = `SELECT * FROM todos WHERE id = ?`;
+    const [rows] = await pool.query(sql, [req.params.id]);
+
+    if (rows.length === 0) {
       return res.status(404).json({ message: "Todo nicht gefunden" });
     }
-    res.json(row);
-  });
+
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// =================================================================================
-
+// ==================== TODO ERSTELLEN ====================
 app.post("/api/todos", (req, res) => {
-  let errors = [];
-
-  if (!req.body.title) {
-    errors.push("Titel ist erforderlich");
-  }
-
-  if (errors.length > 0) {
-    return res.status(400).json({ errors });
-  }
-
-  const data = {
-    title: req.body.title,
-    description: req.body.description || "", // Fallback für leere Beschreibung
-    created: Date.now(),
-    updated: Date.now(),
-    completed: req.body.completed || 0, // Default auf 0 (nicht erledigt)
-  };
+  const { title, description = "", completed = 0 } = req.body;
+  const timestamp = Date.now();
 
   const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
-
-  /**
-   * Diese Änderung wird persistent gespeichert:
-   */
-  db.run(
+  db.query(
     sql,
-    [data.title, data.description, data.created, data.updated, data.completed],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+    [title, description, timestamp, timestamp, completed],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+
       res.status(201).json({
-        id: this.lastID,
-        ...data,
+        id: result.insertId,
+        title,
+        description,
+        created: timestamp,
+        updated: timestamp,
+        completed,
         message: "Todo erfolgreich erstellt",
       });
     }
   );
 });
 
-// =================================================================================
-
-/**
- * PATCH update todo
- */
-app.patch("/api/todos/:id", (req, res) => {
+// ==================== TODO AKTUALISIEREN (PATCH) ====================
+app.patch("/api/todos/:id", async (req, res) => {
   const { title, description, completed } = req.body;
   const updates = [];
   const params = [];
@@ -116,57 +90,58 @@ app.patch("/api/todos/:id", (req, res) => {
   }
 
   updates.push("updated = ?");
-  params.push(Date.now(), req.params.id);
+  params.push(Date.now());
+
+  params.push(req.params.id); // für WHERE-Klausel
 
   const sql = `UPDATE todos SET ${updates.join(", ")} WHERE id = ?`;
 
-  /**
-   * Diese Änderung wird persistent gespeichert:
-   */
-  db.run(sql, params, function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0)
+  try {
+    const [result] = await pool.query(sql, params);
+
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Todo nicht gefunden" });
-    res.json({ message: "Todo aktualisiert", changes: this.changes });
-  });
+    }
+
+    res.json({ message: "Todo aktualisiert", changes: result.affectedRows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// =================================================================================
+// ==================== TODO LÖSCHEN ====================
+app.delete("/api/todos/:id", async (req, res) => {
+  const sql = `DELETE FROM todos WHERE id = ?`;
 
-/**
- * DELETE /api/todos/:id
- * Löscht ein Todo anhand der ID
- */
-app.delete("/api/todos/:id", (req, res) => {
-  db.run("DELETE FROM todos WHERE id = ?", [req.params.id], function (err) {
-    if (err) {
-      return res.status(500).json({
-        error: "Datenbankfehler: " + err.message,
-      });
-    }
-    if (this.changes === 0) {
+  try {
+    const [result] = await pool.query(sql, [req.params.id]);
+
+    if (result.affectedRows === 0) {
       return res.status(404).json({
         message: "Todo mit ID " + req.params.id + " nicht gefunden",
       });
     }
+
     res.json({
       message: "Todo erfolgreich gelöscht",
       deletedId: req.params.id,
-      changes: this.changes,
+      changes: result.affectedRows,
     });
-  });
+  } catch (err) {
+    res.status(500).json({
+      error: "Datenbankfehler: " + err.message,
+    });
+  }
 });
 
-// =================================================================================
-
-// 404 Handler (muss ZULETZT kommen!)
+// ==================== 404-FEHLERBEHANDLUNG ====================
 app.use((req, res) => {
   res.status(404).json({
     message: "Route nicht gefunden",
   });
 });
 
-// Server starten bzw. Browser öffnen zugriff auf localhost:3000
+// ==================== SERVER STARTEN ====================
 app.listen(HTTP_PORT, () => {
-  console.log(`Server läuft auf Port ${HTTP_PORT}`);
+  console.log(`✅ Server läuft auf Port ${HTTP_PORT}`);
 });
