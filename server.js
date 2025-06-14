@@ -1,5 +1,6 @@
 import express from "express";
-import { db } from "./db.js";
+import { pool } from "./db.js";
+// import { db } from "./db.js";
 import cors from "cors";
 
 const app = express();
@@ -8,6 +9,10 @@ const HTTP_PORT = process.env.PORT || 3000;
 // ==================== MIDDLEWARE ====================
 app.use(express.json()); // JSON-Daten verarbeiten
 app.use(cors()); // Cross-Origin Resource Sharing aktivieren
+// app.use(cors({
+//   origin: 'https://restful-api-notes.dev2k.org',
+//   methods: ['GET','POST','PUT','DELETE']
+// }));
 
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
@@ -41,30 +46,64 @@ app.get("/api/todos/:id", async (req, res) => {
   }
 });
 
+/**
+ * Noch die Input Validierung machen,
+ * z. B. per Middleware (z. B. express-validator)
+ * aktuell wird alles ungefiltert in die DB geschrieben.
+ * 
+ * created und updated als BIGINT:
+ * Das ist in Ordnung, aber überlege, ob DATETIME oder TIMESTAMP
+ * für spätere Auswertungen praktischer wäre. Aktuell verwendest du Unix-Timestamps mit Date.now().
+ */
+
 // ==================== TODO ERSTELLEN ====================
-app.post("/api/todos", (req, res) => {
+app.post("/api/todos", async (req, res) => {
   const { title, description = "", completed = 0 } = req.body;
   const timestamp = Date.now();
 
-  const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
-  db.query(
-    sql,
-    [title, description, timestamp, timestamp, completed],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
+  try {
+    const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
+    const [result] = await pool.query(
+      sql,
+      [title, description, timestamp, timestamp, completed]
+    );
 
-      res.status(201).json({
-        id: result.insertId,
-        title,
-        description,
-        created: timestamp,
-        updated: timestamp,
-        completed,
-        message: "Todo erfolgreich erstellt",
-      });
-    }
-  );
+    res.status(201).json({
+      id: result.insertId,
+      title,
+      description,
+      created: timestamp,
+      updated: timestamp,
+      completed,
+      message: "Todo erfolgreich erstellt",
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
+// app.post("/api/todos", (req, res) => {
+//   const { title, description = "", completed = 0 } = req.body;
+//   const timestamp = Date.now();
+
+//   const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
+//   db.query(
+//     sql,
+//     [title, description, timestamp, timestamp, completed],
+//     (err, result) => {
+//       if (err) return res.status(500).json({ error: err.message });
+
+//       res.status(201).json({
+//         id: result.insertId,
+//         title,
+//         description,
+//         created: timestamp,
+//         updated: timestamp,
+//         completed,
+//         message: "Todo erfolgreich erstellt",
+//       });
+//     }
+//   );
+// });
 
 // ==================== TODO AKTUALISIEREN (PATCH) ====================
 app.patch("/api/todos/:id", async (req, res) => {
