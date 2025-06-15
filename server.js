@@ -8,11 +8,11 @@ const HTTP_PORT = process.env.PORT || 3000;
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json()); // JSON-Daten verarbeiten
-app.use(cors()); // Cross-Origin Resource Sharing aktivieren
-// app.use(cors({
-//   origin: 'https://restful-api-notes.dev2k.org',
-//   methods: ['GET','POST','PUT','DELETE']
-// }));
+// app.use(cors()); // Cross-Origin Resource Sharing aktivieren
+app.use(cors({
+  origin: 'https://restful-api-notes.dev2k.org',
+  methods: ['GET','POST','PUT','DELETE']
+}));
 
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
