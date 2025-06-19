@@ -9,10 +9,12 @@ const HTTP_PORT = process.env.PORT || 3000;
 // ==================== MIDDLEWARE ====================
 app.use(express.json()); // JSON-Daten verarbeiten
 // app.use(cors()); // Cross-Origin Resource Sharing aktivieren
-app.use(cors({
-  origin: 'https://restful-api-notes.dev2k.org',
-  methods: ['GET','POST','PUT','DELETE']
-}));
+app.use(
+  cors({
+    origin: ["https://api-note.dev2k.space", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
 
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
@@ -50,7 +52,7 @@ app.get("/api/todos/:id", async (req, res) => {
  * Noch die Input Validierung machen,
  * z. B. per Middleware (z. B. express-validator)
  * aktuell wird alles ungefiltert in die DB geschrieben.
- * 
+ *
  * created und updated als BIGINT:
  * Das ist in Ordnung, aber überlege, ob DATETIME oder TIMESTAMP
  * für spätere Auswertungen praktischer wäre. Aktuell verwendest du Unix-Timestamps mit Date.now().
@@ -63,10 +65,13 @@ app.post("/api/todos", async (req, res) => {
 
   try {
     const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
-    const [result] = await pool.query(
-      sql,
-      [title, description, timestamp, timestamp, completed]
-    );
+    const [result] = await pool.query(sql, [
+      title,
+      description,
+      timestamp,
+      timestamp,
+      completed,
+    ]);
 
     res.status(201).json({
       id: result.insertId,
@@ -181,6 +186,6 @@ app.use((req, res) => {
 });
 
 // ==================== SERVER STARTEN ====================
-app.listen(HTTP_PORT, () => {
+app.listen(HTTP_PORT, "0.0.0.0", () => {
   console.log(`✅ Server läuft auf Port ${HTTP_PORT}`);
 });
