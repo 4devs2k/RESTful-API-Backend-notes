@@ -8,13 +8,13 @@ const HTTP_PORT = process.env.PORT || 3000;
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json()); // JSON-Daten verarbeiten
-// app.use(cors()); // Cross-Origin Resource Sharing aktivieren
-app.use(
-  cors({
-    origin: ["https://api-note.dev2k.space", "http://localhost:5173"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+app.use(cors()); // Cross-Origin Resource Sharing aktivieren
+// app.use(
+//   cors({
+//     origin: ["https://api-note.dev2k.space", "http://localhost:5173"],
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//   })
+// );
 
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
