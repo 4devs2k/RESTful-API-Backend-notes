@@ -16,7 +16,7 @@ app.use(
       "https://restful-api-notes.dev2k.org",
       "http://localhost:5173",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true // Cookies und Authentifizierung erlauben
   })
 );
