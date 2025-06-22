@@ -10,6 +10,14 @@ console.log("👉 Aktive DB_HOST:", process.env.DB_HOST);
  * dass er direkt ein Pool-Objekt exportiert. Sag einfach Bescheid!
  */
 
+// Debug-Log: Zeige geladene DB-Konfiguration
+console.log("» Lese DB-Konfig aus env:", {
+  host:     process.env.DB_HOST,
+  port:     process.env.DB_PORT,
+  user:     process.env.DB_USER,
+  database: process.env.DB_NAME
+});
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   // port: process.env.DB_PORT,
@@ -72,7 +80,7 @@ async function initializeDatabase() {
     console.log("Tabelle 'todos' ist bereit.");
   } catch (err) {
     console.error("Datenbankfehler:", err.message);
-    process.exit(1);
+    // process.exit(1);
   } finally {
     if (connection) connection.release();
   }
