@@ -11,11 +11,15 @@ app.use(express.json()); // JSON-Daten verarbeiten
 // app.use(cors()); // Cross-Origin Resource Sharing aktivieren
 app.use(
   cors({
-    origin: ["https://api-notes.dev2k.space", "http://localhost:5173"],
+    origin: [
+      "https://api-notes.dev2k.space",
+      "https://restful-api-notes.dev2k.org",
+      "http://localhost:5173",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true // Cookies und Authentifizierung erlauben
   })
 );
-
 
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
