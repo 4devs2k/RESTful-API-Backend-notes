@@ -1,4 +1,5 @@
 // import mysql from "mysql2";
+import fs from "fs";
 import mysql from "mysql2/promise"; // Use the promise-based API
 import dotenv from "dotenv";
 dotenv.config();
