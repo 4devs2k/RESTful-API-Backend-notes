@@ -1,5 +1,5 @@
 // import mysql from "mysql2";
-import fs from "fs";
+// import fs from "fs";
 import mysql from "mysql2/promise"; // Use the promise-based API
 import dotenv from "dotenv";
 dotenv.config();
@@ -12,13 +12,14 @@ console.log("👉 Aktive DB_HOST:", process.env.DB_HOST);
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
+  // port: process.env.DB_PORT,
+  port: Number(process.env.DB_PORT),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: {
-    ca: fs.readFileSync("/etc/ssl/certs/aiven-ca.pem")
-  },
+  // ssl: {
+  //   ca: fs.readFileSync("/etc/ssl/certs/aiven-ca.pem")
+  // },
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
