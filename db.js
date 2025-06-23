@@ -80,7 +80,7 @@ async function initializeDatabase() {
     console.log("Tabelle 'todos' ist bereit.");
   } catch (err) {
     console.error("Datenbankfehler:", err.message);
-    // process.exit(1);
+    process.exit(1);
   } finally {
     if (connection) connection.release();
   }
