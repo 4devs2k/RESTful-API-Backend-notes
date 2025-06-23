@@ -14,10 +14,10 @@ app.use(
     origin: [
       "https://api-notes.dev2k.space",
       "https://restful-api-notes.dev2k.org",
-      "http://localhost:5173",
+      // "http://localhost:5173",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true // Cookies und Authentifizierung erlauben
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true, // Cookies und Authentifizierung erlauben
   })
 );
 
