@@ -1,6 +1,5 @@
 import express from "express";
 import { pool } from "./db.js";
-// import { db } from "./db.js";
 import cors from "cors";
 
 const app = express();
@@ -14,7 +13,6 @@ app.use(
     origin: [
       "https://api-notes.dev2k.space",
       "https://restful-api-notes.dev2k.org",
-      // "http://localhost:5173",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Cookies und Authentifizierung erlauben
@@ -91,29 +89,6 @@ app.post("/api/todos", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// app.post("/api/todos", (req, res) => {
-//   const { title, description = "", completed = 0 } = req.body;
-//   const timestamp = Date.now();
-
-//   const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
-//   db.query(
-//     sql,
-//     [title, description, timestamp, timestamp, completed],
-//     (err, result) => {
-//       if (err) return res.status(500).json({ error: err.message });
-
-//       res.status(201).json({
-//         id: result.insertId,
-//         title,
-//         description,
-//         created: timestamp,
-//         updated: timestamp,
-//         completed,
-//         message: "Todo erfolgreich erstellt",
-//       });
-//     }
-//   );
-// });
 
 // ==================== TODO AKTUALISIEREN (PATCH) ====================
 app.patch("/api/todos/:id", async (req, res) => {
