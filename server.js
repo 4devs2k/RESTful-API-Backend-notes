@@ -1,13 +1,21 @@
 import express from "express";
-import { pool } from "./db.js";
 import cors from "cors";
+
+import cookieParser from "cookie-parser";
+import { v4 as uuidv4 } from "uuid";
+import mysql from "mysql2/promise";
+
+// import { pool } from "./db.js";
+import { corePool, guestPools } from "./db.js";
+
+environmentVariables();
 
 const app = express();
 const HTTP_PORT = process.env.PORT || 3000;
 
 // ==================== MIDDLEWARE ====================
-app.use(express.json()); // JSON-Daten verarbeiten
-// app.use(cors()); // Cross-Origin Resource Sharing aktivieren
+app.use(express.json());
+app.use(cookieParser());
 app.use(
   cors({
     origin: [
@@ -19,16 +27,79 @@ app.use(
   })
 );
 
+// ================================================
+// Middleware: Gast-Datenbank auswählen/erstellen
+app.use(async (req, res, next) => {
+  // 1. Guest-ID aus Cookie oder neu generieren
+  let guestId = req.cookies.guestId;
+  if (!guestId) {
+    guestId = uuidv4();
+    res.cookie("guestId", guestId, {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: "lax",
+      secure: true,
+    });
+  }
+
+  // 2. Datenbankname ableiten
+  const dbName = `notes_guest_${guestId.replace(/-/g, "")}`;
+
+  // 3. Datenbank anlegen (wenn nicht existiert)
+  await corePool.query(
+    `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`
+  );
+
+  // 4. Pool und TODO-Tabelle provisionieren
+  if (!guestPools[guestId]) {
+    const pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: dbName,
+      waitForConnections: true,
+      connectionLimit: 5,
+    });
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS todos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        created BIGINT,
+        updated BIGINT,
+        completed TINYINT
+      );
+    `);
+    guestPools[guestId] = pool;
+  }
+
+  // 5. Pool in Request injizieren
+  req.pool = guestPools[guestId];
+  next();
+});
+
 // ==================== BASISROUTE ====================
 app.get("/api", (req, res) => {
   res.json({ message: "Willkommen bei deiner RESTful API!" });
 });
 
 // ==================== ALLE TODOS LADEN ====================
+// app.get("/api/todos", async (req, res) => {
+//   try {
+//     const sql = `SELECT * FROM todos ORDER BY completed ASC, updated DESC`;
+//     const [rows] = await pool.query(sql);
+//     res.json(rows);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// ==================== CRUD-Routen (nutzen req.pool) ====================
 app.get("/api/todos", async (req, res) => {
   try {
     const sql = `SELECT * FROM todos ORDER BY completed ASC, updated DESC`;
-    const [rows] = await pool.query(sql);
+    const [rows] = await req.pool.query(sql);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -36,15 +107,27 @@ app.get("/api/todos", async (req, res) => {
 });
 
 // ==================== EINZELNES TODO LADEN ====================
+// app.get("/api/todos/:id", async (req, res) => {
+//   try {
+//     const sql = `SELECT * FROM todos WHERE id = ?`;
+//     const [rows] = await pool.query(sql, [req.params.id]);
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ message: "Todo nicht gefunden" });
+//     }
+
+//     res.json(rows[0]);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 app.get("/api/todos/:id", async (req, res) => {
   try {
-    const sql = `SELECT * FROM todos WHERE id = ?`;
-    const [rows] = await pool.query(sql, [req.params.id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Todo nicht gefunden" });
-    }
-
+    const [rows] = await req.pool.query(
+      `SELECT * FROM todos WHERE id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: "Todo nicht gefunden" });
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -62,20 +145,41 @@ app.get("/api/todos/:id", async (req, res) => {
  */
 
 // ==================== TODO ERSTELLEN ====================
+// app.post("/api/todos", async (req, res) => {
+//   const { title, description = "", completed = 0 } = req.body;
+//   const timestamp = Date.now();
+
+//   try {
+//     const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
+//     const [result] = await pool.query(sql, [
+//       title,
+//       description,
+//       timestamp,
+//       timestamp,
+//       completed,
+//     ]);
+
+//     res.status(201).json({
+//       id: result.insertId,
+//       title,
+//       description,
+//       created: timestamp,
+//       updated: timestamp,
+//       completed,
+//       message: "Todo erfolgreich erstellt",
+//     });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 app.post("/api/todos", async (req, res) => {
   const { title, description = "", completed = 0 } = req.body;
   const timestamp = Date.now();
-
   try {
-    const sql = `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`;
-    const [result] = await pool.query(sql, [
-      title,
-      description,
-      timestamp,
-      timestamp,
-      completed,
-    ]);
-
+    const [result] = await req.pool.query(
+      `INSERT INTO todos (title, description, created, updated, completed) VALUES (?, ?, ?, ?, ?)`,
+      [title, description, timestamp, timestamp, completed]
+    );
     res.status(201).json({
       id: result.insertId,
       title,
@@ -91,42 +195,60 @@ app.post("/api/todos", async (req, res) => {
 });
 
 // ==================== TODO AKTUALISIEREN (PATCH) ====================
+// app.patch("/api/todos/:id", async (req, res) => {
+//   const { title, description, completed } = req.body;
+//   const updates = [];
+//   const params = [];
+
+//   if (title !== undefined) {
+//     updates.push("title = COALESCE(?, title)");
+//     params.push(title);
+//   }
+//   if (description !== undefined) {
+//     updates.push("description = COALESCE(?, description)");
+//     params.push(description);
+//   }
+//   if (completed !== undefined) {
+//     updates.push("completed = COALESCE(?, completed)");
+//     params.push(completed);
+//   }
+
+//   if (updates.length === 0) {
+//     return res.status(400).json({ error: "Keine Update-Daten" });
+//   }
+
+//   updates.push("updated = ?");
+//   params.push(Date.now());
+
+//   params.push(req.params.id); // für WHERE-Klausel
+
+//   const sql = `UPDATE todos SET ${updates.join(", ")} WHERE id = ?`;
+
+//   try {
+//     const [result] = await pool.query(sql, params);
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ message: "Todo nicht gefunden" });
+//     }
+
+//     res.json({ message: "Todo aktualisiert", changes: result.affectedRows });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 app.patch("/api/todos/:id", async (req, res) => {
   const { title, description, completed } = req.body;
-  const updates = [];
-  const params = [];
-
-  if (title !== undefined) {
-    updates.push("title = COALESCE(?, title)");
-    params.push(title);
-  }
-  if (description !== undefined) {
-    updates.push("description = COALESCE(?, description)");
-    params.push(description);
-  }
-  if (completed !== undefined) {
-    updates.push("completed = COALESCE(?, completed)");
-    params.push(completed);
-  }
-
-  if (updates.length === 0) {
-    return res.status(400).json({ error: "Keine Update-Daten" });
-  }
-
-  updates.push("updated = ?");
-  params.push(Date.now());
-
-  params.push(req.params.id); // für WHERE-Klausel
-
+  const updates = [], params = [];
+  if (title !== undefined) { updates.push("title = COALESCE(?, title)"); params.push(title); }
+  if (description !== undefined) { updates.push("description = COALESCE(?, description)"); params.push(description); }
+  if (completed !== undefined) { updates.push("completed = COALESCE(?, completed)"); params.push(completed); }
+  if (!updates.length) return res.status(400).json({ error: "Keine Update-Daten" });
+  updates.push("updated = ?"); params.push(Date.now());
+  params.push(req.params.id);
   const sql = `UPDATE todos SET ${updates.join(", ")} WHERE id = ?`;
-
   try {
-    const [result] = await pool.query(sql, params);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Todo nicht gefunden" });
-    }
-
+    const [result] = await req.pool.query(sql, params);
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Todo nicht gefunden" });
     res.json({ message: "Todo aktualisiert", changes: result.affectedRows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -134,27 +256,36 @@ app.patch("/api/todos/:id", async (req, res) => {
 });
 
 // ==================== TODO LÖSCHEN ====================
+// app.delete("/api/todos/:id", async (req, res) => {
+//   const sql = `DELETE FROM todos WHERE id = ?`;
+
+//   try {
+//     const [result] = await pool.query(sql, [req.params.id]);
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({
+//         message: "Todo mit ID " + req.params.id + " nicht gefunden",
+//       });
+//     }
+
+//     res.json({
+//       message: "Todo erfolgreich gelöscht",
+//       deletedId: req.params.id,
+//       changes: result.affectedRows,
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       error: "Datenbankfehler: " + err.message,
+//     });
+//   }
+// });
 app.delete("/api/todos/:id", async (req, res) => {
-  const sql = `DELETE FROM todos WHERE id = ?`;
-
   try {
-    const [result] = await pool.query(sql, [req.params.id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        message: "Todo mit ID " + req.params.id + " nicht gefunden",
-      });
-    }
-
-    res.json({
-      message: "Todo erfolgreich gelöscht",
-      deletedId: req.params.id,
-      changes: result.affectedRows,
-    });
+    const [result] = await req.pool.query(`DELETE FROM todos WHERE id = ?`, [req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Todo nicht gefunden" });
+    res.json({ message: "Todo erfolgreich gelöscht", deletedId: req.params.id });
   } catch (err) {
-    res.status(500).json({
-      error: "Datenbankfehler: " + err.message,
-    });
+    res.status(500).json({ error: err.message });
   }
 });
 

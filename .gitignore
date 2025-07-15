@@ -52,3 +52,7 @@ src/app/firebase.config.ts
 
 # Environments files
 .env
+
+# custom files
+chat_server.js
+chat_db.js
