@@ -37,6 +37,4 @@ const corePool = mysql.createPool({
   }
 })();
 
-testCoreConnection();
-
 export { corePool, guestPools };
