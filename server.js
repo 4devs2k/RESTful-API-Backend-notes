@@ -8,8 +8,6 @@ import mysql from "mysql2/promise";
 
 import { corePool, guestPools } from "./db.js";
 
-environmentVariables();
-
 const app = express();
 const HTTP_PORT = process.env.PORT || 3000;
 
