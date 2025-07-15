@@ -18,7 +18,7 @@ app.use(
   cors({
     origin: [
       "https://restful-guest-access.dev2k.space",
-      "https://restful-guest-access.dev2k.org/"
+      "https://restful-guest-access.dev2k.org/",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Cookies und Authentifizierung erlauben
@@ -49,14 +49,14 @@ app.use(async (req, res, next) => {
   );
 
   // 3a. Rechte setzen
-  await corePool.query(
-    `
-  GRANT ALL PRIVILEGES 
-    ON \`${dbName}\`.* 
-    TO ?@?;
-`,
-    [process.env.DB_USER, process.env.DB_HOST]
-  );
+  //   await corePool.query(
+  //     `
+  //   GRANT ALL PRIVILEGES
+  //     ON \`${dbName}\`.*
+  //     TO ?@?;
+  // `,
+  //     [process.env.DB_USER, process.env.DB_HOST]
+  //   );
 
   // 4. Pool und TODO-Tabelle provisionieren
   if (!guestPools[guestId]) {
