@@ -18,7 +18,7 @@ app.use(
   cors({
     origin: [
       "https://restful-guest-access.dev2k.space",
-      "https://restful-api-notes.dev2k.org",
+      "https://restful-guest-access.dev2k.org/"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true, // Cookies und Authentifizierung erlauben
