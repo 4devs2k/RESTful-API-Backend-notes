@@ -17,7 +17,7 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: [
-      "https://api-notes.dev2k.space",
+      "https://restful-guest-access.dev2k.space",
       "https://restful-api-notes.dev2k.org",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -96,11 +96,11 @@ app.get("/api/todos", async (req, res) => {
 // ==================== EINZELNES TODO LADEN ====================
 app.get("/api/todos/:id", async (req, res) => {
   try {
-    const [rows] = await req.pool.query(
-      `SELECT * FROM todos WHERE id = ?`,
-      [req.params.id]
-    );
-    if (!rows.length) return res.status(404).json({ message: "Todo nicht gefunden" });
+    const [rows] = await req.pool.query(`SELECT * FROM todos WHERE id = ?`, [
+      req.params.id,
+    ]);
+    if (!rows.length)
+      return res.status(404).json({ message: "Todo nicht gefunden" });
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -143,17 +143,30 @@ app.post("/api/todos", async (req, res) => {
 // ==================== TODO AKTUALISIEREN (PATCH) ====================
 app.patch("/api/todos/:id", async (req, res) => {
   const { title, description, completed } = req.body;
-  const updates = [], params = [];
-  if (title !== undefined) { updates.push("title = COALESCE(?, title)"); params.push(title); }
-  if (description !== undefined) { updates.push("description = COALESCE(?, description)"); params.push(description); }
-  if (completed !== undefined) { updates.push("completed = COALESCE(?, completed)"); params.push(completed); }
-  if (!updates.length) return res.status(400).json({ error: "Keine Update-Daten" });
-  updates.push("updated = ?"); params.push(Date.now());
+  const updates = [],
+    params = [];
+  if (title !== undefined) {
+    updates.push("title = COALESCE(?, title)");
+    params.push(title);
+  }
+  if (description !== undefined) {
+    updates.push("description = COALESCE(?, description)");
+    params.push(description);
+  }
+  if (completed !== undefined) {
+    updates.push("completed = COALESCE(?, completed)");
+    params.push(completed);
+  }
+  if (!updates.length)
+    return res.status(400).json({ error: "Keine Update-Daten" });
+  updates.push("updated = ?");
+  params.push(Date.now());
   params.push(req.params.id);
   const sql = `UPDATE todos SET ${updates.join(", ")} WHERE id = ?`;
   try {
     const [result] = await req.pool.query(sql, params);
-    if (result.affectedRows === 0) return res.status(404).json({ message: "Todo nicht gefunden" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Todo nicht gefunden" });
     res.json({ message: "Todo aktualisiert", changes: result.affectedRows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -163,9 +176,15 @@ app.patch("/api/todos/:id", async (req, res) => {
 // ==================== TODO LÖSCHEN ====================
 app.delete("/api/todos/:id", async (req, res) => {
   try {
-    const [result] = await req.pool.query(`DELETE FROM todos WHERE id = ?`, [req.params.id]);
-    if (result.affectedRows === 0) return res.status(404).json({ message: "Todo nicht gefunden" });
-    res.json({ message: "Todo erfolgreich gelöscht", deletedId: req.params.id });
+    const [result] = await req.pool.query(`DELETE FROM todos WHERE id = ?`, [
+      req.params.id,
+    ]);
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Todo nicht gefunden" });
+    res.json({
+      message: "Todo erfolgreich gelöscht",
+      deletedId: req.params.id,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
