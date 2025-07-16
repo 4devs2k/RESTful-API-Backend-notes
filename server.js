@@ -37,6 +37,7 @@ app.use(async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
       secure: true,
+      domain: "restful-guest-access.dev2k.space",
       path: "/",
     });
   }
