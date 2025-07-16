@@ -37,6 +37,7 @@ app.use(async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
       secure: true,
+      path: "/",
     });
   }
 
@@ -47,16 +48,6 @@ app.use(async (req, res, next) => {
   await corePool.query(
     `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`
   );
-
-  // 3a. Rechte setzen
-  //   await corePool.query(
-  //     `
-  //   GRANT ALL PRIVILEGES
-  //     ON \`${dbName}\`.*
-  //     TO ?@?;
-  // `,
-  //     [process.env.DB_USER, process.env.DB_HOST]
-  //   );
 
   // 4. Pool und TODO-Tabelle provisionieren
   if (!guestPools[guestId]) {
